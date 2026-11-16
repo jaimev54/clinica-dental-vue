@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
-import { SITE_NAME } from '@/data/site'
+import { SITE_NAME, SITE_URL } from '@/data/site'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -68,10 +68,11 @@ const router = createRouter({
   },
 })
 
-// Título y meta description únicos por ruta (SEO).
+// Título, meta description y URL canónica únicos por ruta (SEO).
 router.afterEach((to) => {
   document.title = `${to.meta.title} | ${SITE_NAME}`
   document.querySelector('meta[name="description"]')?.setAttribute('content', to.meta.description)
+  document.querySelector('link[rel="canonical"]')?.setAttribute('href', `${SITE_URL}${to.path}`)
 })
 
 export default router

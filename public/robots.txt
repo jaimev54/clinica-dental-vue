@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://clinica-dental-vue.netlify.app/sitemap.xml

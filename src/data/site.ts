@@ -2,6 +2,9 @@ import type { NavLink } from '@/types/site'
 
 export const SITE_NAME = 'Clínica Dental Sonrisa'
 
+// URL de producción (Netlify). Se usa para la URL canónica de cada página.
+export const SITE_URL = 'https://clinica-dental-vue.netlify.app'
+
 // Enlaces del menú principal. "Agendar cita" va aparte porque se muestra como botón destacado.
 export const NAV_LINKS: NavLink[] = [
   { label: 'Inicio', to: '/' },
