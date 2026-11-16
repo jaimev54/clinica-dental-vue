@@ -11,3 +11,10 @@ export const NAV_LINKS: NavLink[] = [
 ]
 
 export const BOOKING_LINK: NavLink = { label: 'Agendar cita', to: '/agendar-cita' }
+
+// Datos de contacto ficticios (example.com es un dominio reservado para ejemplos).
+export const CONTACT_INFO = {
+  address: 'Av. Ejemplo 123, Col. Centro, Monterrey, N.L.',
+  phone: '81 0000 0000',
+  email: 'contacto@example.com',
+}

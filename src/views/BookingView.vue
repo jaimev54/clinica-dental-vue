@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, useTemplateRef, watch } from 'vue'
 import FormField from '@/components/FormField.vue'
+import { isValidEmail, useFormValidation, type FieldErrors } from '@/composables/useFormValidation'
 import { DOCTORS } from '@/data/doctors'
 import { SCHEDULE } from '@/data/schedule'
 import { SERVICES } from '@/data/services'
@@ -8,7 +9,6 @@ import type { BookingField, BookingForm } from '@/types/booking'
 
 const MAX_DAYS_AHEAD = 60
 const NOTES_MAX_LENGTH = 500
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Orden de los campos en pantalla: se usa para enfocar el primer campo con error.
 const FIELD_ORDER: BookingField[] = [
@@ -51,8 +51,6 @@ const maxDate = toIsoDate(daysFromToday(MAX_DAYS_AHEAD))
 // --- Estado del formulario ---
 // reactive() hace reactivo un objeto completo; v-model enlaza cada campo (como [(ngModel)]).
 const form = reactive<BookingForm>(emptyForm())
-const touched = reactive<Partial<Record<BookingField, boolean>>>({})
-const submitAttempted = ref(false)
 const isSubmitted = ref(false)
 const successHeading = useTemplateRef<HTMLHeadingElement>('successHeading')
 
@@ -76,11 +74,11 @@ watch(availableTimes, (times) => {
 
 // --- Validación ---
 const errors = computed(() => {
-  const result: Partial<Record<BookingField, string>> = {}
+  const result: FieldErrors<BookingField> = {}
 
   if (form.name.trim().length < 3) result.name = 'Escribe tu nombre completo.'
 
-  if (!EMAIL_PATTERN.test(form.email.trim())) {
+  if (!isValidEmail(form.email)) {
     result.email = 'Escribe un correo válido, por ejemplo nombre@correo.com.'
   }
 
@@ -110,19 +108,11 @@ const errors = computed(() => {
   return result
 })
 
-// El error solo se muestra si el usuario ya salió del campo o intentó enviar.
-function errorFor(field: BookingField): string | undefined {
-  return touched[field] || submitAttempted.value ? errors.value[field] : undefined
-}
-
-function inputClass(field: BookingField): string {
-  return [
-    'block w-full rounded-lg border bg-white px-3 py-2 text-slate-900',
-    'focus:border-teal-700 focus:ring-2 focus:ring-teal-700/30 focus:outline-none',
-    'disabled:cursor-not-allowed disabled:bg-slate-100',
-    errorFor(field) ? 'border-red-600' : 'border-slate-300',
-  ].join(' ')
-}
+const { touch, errorFor, describedBy, inputClass, validate, reset } = useFormValidation({
+  errors,
+  fieldOrder: FIELD_ORDER,
+  idPrefix: 'booking',
+})
 
 // --- Resumen tras enviar ---
 const selectedDoctor = computed(() => DOCTORS.find((doctor) => doctor.id === form.doctor))
@@ -133,13 +123,7 @@ const formattedDate = computed(() => {
 })
 
 async function handleSubmit() {
-  submitAttempted.value = true
-
-  const firstInvalid = FIELD_ORDER.find((field) => errors.value[field])
-  if (firstInvalid) {
-    document.getElementById(`booking-${firstInvalid}`)?.focus()
-    return
-  }
+  if (!validate()) return
 
   // Paso 6: aquí se enviará el formulario a Netlify Forms.
   isSubmitted.value = true
@@ -149,8 +133,7 @@ async function handleSubmit() {
 
 function resetForm() {
   Object.assign(form, emptyForm())
-  for (const field of FIELD_ORDER) delete touched[field]
-  submitAttempted.value = false
+  reset()
   isSubmitted.value = false
 }
 </script>
@@ -200,7 +183,8 @@ function resetForm() {
 
     <template v-else>
       <p class="mt-3 text-lg text-slate-600">
-        Elige el servicio, el doctor y el horario que prefieras. Te confirmaremos por correo.
+        Elige el servicio, el doctor y el horario que prefieras. Revisaremos tu solicitud y te
+        contactaremos.
       </p>
       <p class="mt-2 text-sm text-slate-600">
         Los campos marcados con <span class="text-red-700">*</span> son obligatorios.
@@ -222,8 +206,8 @@ function resetForm() {
             required
             :class="inputClass('name')"
             :aria-invalid="!!errorFor('name')"
-            :aria-describedby="errorFor('name') ? 'booking-name-error' : undefined"
-            @blur="touched.name = true"
+            :aria-describedby="describedBy('name')"
+            @blur="touch('name')"
           />
         </FormField>
 
@@ -241,8 +225,8 @@ function resetForm() {
             required
             :class="inputClass('email')"
             :aria-invalid="!!errorFor('email')"
-            :aria-describedby="errorFor('email') ? 'booking-email-error' : undefined"
-            @blur="touched.email = true"
+            :aria-describedby="describedBy('email')"
+            @blur="touch('email')"
           />
         </FormField>
 
@@ -257,8 +241,8 @@ function resetForm() {
             required
             :class="inputClass('phone')"
             :aria-invalid="!!errorFor('phone')"
-            :aria-describedby="errorFor('phone') ? 'booking-phone-error' : undefined"
-            @blur="touched.phone = true"
+            :aria-describedby="describedBy('phone')"
+            @blur="touch('phone')"
           />
         </FormField>
 
@@ -269,8 +253,8 @@ function resetForm() {
             required
             :class="inputClass('service')"
             :aria-invalid="!!errorFor('service')"
-            :aria-describedby="errorFor('service') ? 'booking-service-error' : undefined"
-            @blur="touched.service = true"
+            :aria-describedby="describedBy('service')"
+            @blur="touch('service')"
           >
             <option value="" disabled>Selecciona un servicio</option>
             <option v-for="service in SERVICES" :key="service.id" :value="service.id">
@@ -286,8 +270,8 @@ function resetForm() {
             required
             :class="inputClass('doctor')"
             :aria-invalid="!!errorFor('doctor')"
-            :aria-describedby="errorFor('doctor') ? 'booking-doctor-error' : undefined"
-            @blur="touched.doctor = true"
+            :aria-describedby="describedBy('doctor')"
+            @blur="touch('doctor')"
           >
             <option value="" disabled>Selecciona un doctor</option>
             <option v-for="doctor in DOCTORS" :key="doctor.id" :value="doctor.id">
@@ -306,9 +290,9 @@ function resetForm() {
             required
             :class="inputClass('date')"
             :aria-invalid="!!errorFor('date')"
-            :aria-describedby="errorFor('date') ? 'booking-date-error' : undefined"
-            @blur="touched.date = true"
-            @change="touched.date = true"
+            :aria-describedby="describedBy('date')"
+            @blur="touch('date')"
+            @change="touch('date')"
           />
         </FormField>
 
@@ -320,8 +304,8 @@ function resetForm() {
             :disabled="availableTimes.length === 0"
             :class="inputClass('time')"
             :aria-invalid="!!errorFor('time')"
-            :aria-describedby="errorFor('time') ? 'booking-time-error' : undefined"
-            @blur="touched.time = true"
+            :aria-describedby="describedBy('time')"
+            @blur="touch('time')"
           >
             <option value="" disabled>
               {{ availableTimes.length ? 'Selecciona una hora' : 'Primero elige una fecha' }}
@@ -343,8 +327,8 @@ function resetForm() {
             :maxlength="NOTES_MAX_LENGTH"
             :class="inputClass('notes')"
             :aria-invalid="!!errorFor('notes')"
-            :aria-describedby="errorFor('notes') ? 'booking-notes-error' : undefined"
-            @blur="touched.notes = true"
+            :aria-describedby="describedBy('notes')"
+            @blur="touch('notes')"
           />
           <p class="mt-1 text-right text-xs text-slate-500">
             {{ form.notes.length }}/{{ NOTES_MAX_LENGTH }}

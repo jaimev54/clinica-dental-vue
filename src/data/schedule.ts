@@ -1,5 +1,7 @@
 import type { OpeningHours } from '@/types/booking'
 
+export const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
 // La clave es el día de la semana según Date.getDay(): 0 = domingo … 6 = sábado.
 // null = cerrado.
 export const SCHEDULE: Record<number, OpeningHours | null> = {
