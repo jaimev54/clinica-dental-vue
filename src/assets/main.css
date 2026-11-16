@@ -1,1 +1,14 @@
 @import 'tailwindcss';
+
+@layer base {
+  /* Indicador de foco consistente al navegar con teclado (no aparece al hacer clic). */
+  :focus-visible {
+    outline: 2px solid var(--color-teal-700);
+    outline-offset: 2px;
+  }
+
+  /* Elementos que solo reciben foco por código (h1 tras navegar, <main>): sin contorno. */
+  [tabindex='-1']:focus {
+    outline: none;
+  }
+}

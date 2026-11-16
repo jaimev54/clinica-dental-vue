@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { BOOKING_LINK, NAV_LINKS, SITE_NAME } from '@/data/site'
 
 // Estado del menú móvil (equivalente a signal(false) en Angular).
 const isMenuOpen = ref(false)
 const route = useRoute()
+const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
+
+// Escape cierra el menú y devuelve el foco al botón que lo abrió.
+function closeMenuWithKeyboard() {
+  if (!isMenuOpen.value) return
+  isMenuOpen.value = false
+  menuButton.value?.focus()
+}
 
 // Cierra el menú móvil al navegar a otra página.
 watch(
@@ -21,10 +29,12 @@ watch(
     <nav
       aria-label="Principal"
       class="mx-auto flex max-w-6xl flex-wrap items-center justify-between px-4 py-3"
+      @keydown.esc="closeMenuWithKeyboard"
     >
       <RouterLink to="/" class="text-xl font-bold text-teal-700">{{ SITE_NAME }}</RouterLink>
 
       <button
+        ref="menuButton"
         type="button"
         class="rounded-md p-2 text-slate-700 hover:bg-slate-100 md:hidden"
         aria-controls="main-menu"

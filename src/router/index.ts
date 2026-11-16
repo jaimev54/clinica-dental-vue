@@ -51,6 +51,16 @@ const router = createRouter({
         description: 'Ubicación, horarios y formulario de contacto de la clínica.',
       },
     },
+    {
+      // Comodín: cualquier ruta que no coincida con las anteriores (como '**' en Angular).
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: {
+        title: 'Página no encontrada',
+        description: 'La página que buscas no existe.',
+      },
+    },
   ],
   // Al cambiar de página, vuelve arriba (o a la posición guardada al usar "atrás").
   scrollBehavior(_to, _from, savedPosition) {
