@@ -9,6 +9,30 @@
   </head>
   <body>
     <div id="app"></div>
+
+    <!--
+      Formularios ocultos para que Netlify los detecte al hacer el deploy.
+      Los formularios visibles los genera Vue con JavaScript y Netlify no los ve.
+      Deben tener los mismos nombres de campo que se envían desde src/utils/netlifyForms.ts.
+    -->
+    <form name="booking" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <input name="bot-field">
+      <input name="name">
+      <input name="email">
+      <input name="phone">
+      <input name="service">
+      <input name="doctor">
+      <input name="date">
+      <input name="time">
+      <textarea name="notes"></textarea>
+    </form>
+    <form name="contact" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <input name="bot-field">
+      <input name="name">
+      <input name="email">
+      <textarea name="message"></textarea>
+    </form>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

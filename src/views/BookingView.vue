@@ -6,6 +6,7 @@ import { DOCTORS } from '@/data/doctors'
 import { SCHEDULE } from '@/data/schedule'
 import { SERVICES } from '@/data/services'
 import type { BookingField, BookingForm } from '@/types/booking'
+import { submitNetlifyForm } from '@/utils/netlifyForms'
 
 const MAX_DAYS_AHEAD = 60
 const NOTES_MAX_LENGTH = 500
@@ -51,6 +52,9 @@ const maxDate = toIsoDate(daysFromToday(MAX_DAYS_AHEAD))
 // --- Estado del formulario ---
 // reactive() hace reactivo un objeto completo; v-model enlaza cada campo (como [(ngModel)]).
 const form = reactive<BookingForm>(emptyForm())
+const botField = ref('') // honeypot: si un bot lo llena, Netlify descarta el envío
+const isSending = ref(false)
+const submitError = ref('')
 const isSubmitted = ref(false)
 const successHeading = useTemplateRef<HTMLHeadingElement>('successHeading')
 
@@ -123,16 +127,37 @@ const formattedDate = computed(() => {
 })
 
 async function handleSubmit() {
-  if (!validate()) return
+  if (!validate() || isSending.value) return
 
-  // Paso 6: aquí se enviará el formulario a Netlify Forms.
-  isSubmitted.value = true
-  await nextTick()
-  successHeading.value?.focus()
+  isSending.value = true
+  submitError.value = ''
+  try {
+    // Se envían nombres legibles (no ids) para que el aviso de Netlify se entienda.
+    await submitNetlifyForm('booking', {
+      'bot-field': botField.value,
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      service: selectedService.value?.name ?? form.service,
+      doctor: selectedDoctor.value?.name ?? form.doctor,
+      date: formattedDate.value,
+      time: form.time,
+      notes: form.notes.trim(),
+    })
+    isSubmitted.value = true
+    await nextTick()
+    successHeading.value?.focus()
+  } catch {
+    submitError.value = 'No pudimos enviar tu solicitud. Revisa tu conexión e inténtalo de nuevo.'
+  } finally {
+    isSending.value = false
+  }
 }
 
 function resetForm() {
   Object.assign(form, emptyForm())
+  botField.value = ''
+  submitError.value = ''
   reset()
   isSubmitted.value = false
 }
@@ -190,7 +215,20 @@ function resetForm() {
         Los campos marcados con <span class="text-red-700">*</span> son obligatorios.
       </p>
 
-      <form novalidate class="mt-8 grid gap-6 md:grid-cols-2" @submit.prevent="handleSubmit">
+      <form
+        name="booking"
+        novalidate
+        class="mt-8 grid gap-6 md:grid-cols-2"
+        @submit.prevent="handleSubmit"
+      >
+        <!-- Honeypot: oculto para personas; los bots suelen llenarlo. -->
+        <p hidden>
+          <label>
+            No llenes este campo:
+            <input v-model="botField" name="bot-field" tabindex="-1" autocomplete="off" />
+          </label>
+        </p>
+
         <FormField
           id="booking-name"
           label="Nombre completo"
@@ -336,11 +374,19 @@ function resetForm() {
         </FormField>
 
         <div class="md:col-span-2">
+          <p
+            v-if="submitError"
+            role="alert"
+            class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {{ submitError }}
+          </p>
           <button
             type="submit"
-            class="w-full rounded-full bg-teal-700 px-6 py-3 font-semibold text-white hover:bg-teal-800 sm:w-auto"
+            :disabled="isSending"
+            class="w-full rounded-full bg-teal-700 px-6 py-3 font-semibold text-white hover:bg-teal-800 disabled:cursor-wait disabled:opacity-70 sm:w-auto"
           >
-            Solicitar cita
+            {{ isSending ? 'Enviando…' : 'Solicitar cita' }}
           </button>
         </div>
       </form>

@@ -5,6 +5,7 @@ import { isValidEmail, useFormValidation, type FieldErrors } from '@/composables
 import { DAY_NAMES, SCHEDULE } from '@/data/schedule'
 import { CONTACT_INFO } from '@/data/site'
 import type { ContactField, ContactForm } from '@/types/contact'
+import { submitNetlifyForm } from '@/utils/netlifyForms'
 
 const MESSAGE_MIN_LENGTH = 10
 const MESSAGE_MAX_LENGTH = 1000
@@ -25,6 +26,9 @@ function emptyForm(): ContactForm {
 }
 
 const form = reactive<ContactForm>(emptyForm())
+const botField = ref('') // honeypot: si un bot lo llena, Netlify descarta el envío
+const isSending = ref(false)
+const submitError = ref('')
 const isSubmitted = ref(false)
 const successHeading = useTemplateRef<HTMLHeadingElement>('successHeading')
 
@@ -49,16 +53,31 @@ const { touch, errorFor, describedBy, inputClass, validate, reset } = useFormVal
 })
 
 async function handleSubmit() {
-  if (!validate()) return
+  if (!validate() || isSending.value) return
 
-  // Paso 6: aquí se enviará el formulario a Netlify Forms.
-  isSubmitted.value = true
-  await nextTick()
-  successHeading.value?.focus()
+  isSending.value = true
+  submitError.value = ''
+  try {
+    await submitNetlifyForm('contact', {
+      'bot-field': botField.value,
+      name: form.name.trim(),
+      email: form.email.trim(),
+      message: form.message.trim(),
+    })
+    isSubmitted.value = true
+    await nextTick()
+    successHeading.value?.focus()
+  } catch {
+    submitError.value = 'No pudimos enviar tu mensaje. Revisa tu conexión e inténtalo de nuevo.'
+  } finally {
+    isSending.value = false
+  }
 }
 
 function resetForm() {
   Object.assign(form, emptyForm())
+  botField.value = ''
+  submitError.value = ''
   reset()
   isSubmitted.value = false
 }
@@ -147,7 +166,15 @@ function resetForm() {
           </h2>
           <p class="mt-1 text-sm text-slate-600">Todos los campos son obligatorios.</p>
 
-          <form novalidate class="mt-6 space-y-5" @submit.prevent="handleSubmit">
+          <form name="contact" novalidate class="mt-6 space-y-5" @submit.prevent="handleSubmit">
+            <!-- Honeypot: oculto para personas; los bots suelen llenarlo. -->
+            <p hidden>
+              <label>
+                No llenes este campo:
+                <input v-model="botField" name="bot-field" tabindex="-1" autocomplete="off" />
+              </label>
+            </p>
+
             <FormField id="contact-name" label="Nombre" required :error="errorFor('name')">
               <input
                 id="contact-name"
@@ -198,11 +225,19 @@ function resetForm() {
               </p>
             </FormField>
 
+            <p
+              v-if="submitError"
+              role="alert"
+              class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            >
+              {{ submitError }}
+            </p>
             <button
               type="submit"
-              class="w-full rounded-full bg-teal-700 px-6 py-3 font-semibold text-white hover:bg-teal-800 sm:w-auto"
+              :disabled="isSending"
+              class="w-full rounded-full bg-teal-700 px-6 py-3 font-semibold text-white hover:bg-teal-800 disabled:cursor-wait disabled:opacity-70 sm:w-auto"
             >
-              Enviar mensaje
+              {{ isSending ? 'Enviando…' : 'Enviar mensaje' }}
             </button>
           </form>
         </template>
